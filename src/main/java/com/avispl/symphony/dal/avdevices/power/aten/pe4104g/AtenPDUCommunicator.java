@@ -202,7 +202,6 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 				localExtendedStatistics = extendedStatistics;
 			}
 			isEmergencyDelivery = false;
-			this.destroyChannel();
 		} finally {
 			this.timeout = statisticsSSHTimeout;
 			reentrantLock.unlock();
@@ -236,6 +235,7 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 	public void controlProperty(ControllableProperty controllableProperty) throws Exception {
 		reentrantLock.lock();
 		try {
+			this.timeout = controlSSHTimeout;
 			if (this.localExtendedStatistics == null || this.localExtendedStatistics.getStatistics() == null) {
 				return;
 			}
