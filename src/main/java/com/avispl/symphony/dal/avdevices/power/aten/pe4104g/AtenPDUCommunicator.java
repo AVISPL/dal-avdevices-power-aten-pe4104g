@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
+import javax.security.auth.login.FailedLoginException;
 import org.apache.commons.collections.CollectionUtils;
 
 import com.avispl.symphony.api.dal.control.Controller;
@@ -356,6 +357,8 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 				throw new IllegalArgumentException("The response is empty or null");
 			}
 			return response;
+		} catch (FailedLoginException e) {
+			throw new FailedLoginException("Login failure, check credentials and try again.");
 		} catch (Exception e) {
 			failedMonitor.put(command, e.getMessage());
 			logger.error("Error when execute command " + e.getMessage());
@@ -369,14 +372,16 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 	 * @param name of the property of device want to control
 	 * @param command to send to device
 	 */
-	private void sendCommandToControlDevice(String name, String command) {
+	private void sendCommandToControlDevice(String name, String command) throws Exception {
 		try {
 			String response = this.send(command.contains("\r") ? command : command.concat("\r"));
 			if (StringUtils.isNullOrEmpty(response)) {
 				throw new IllegalArgumentException(String.format("Error when control %s, Syntax error command: %s", name, command));
 			}
+		}catch (FailedLoginException e) {
+			throw new FailedLoginException("Login failure, check credential and try again.");
 		} catch (Exception e) {
-			throw new IllegalArgumentException(String.format("Error when control %s", name));
+			throw new IllegalArgumentException(String.format("Error when control %s", name), e);
 		}
 	}
 
