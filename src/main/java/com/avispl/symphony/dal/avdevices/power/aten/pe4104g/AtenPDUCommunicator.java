@@ -86,12 +86,7 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 	/**
 	 * configManagement imported from the user interface
 	 */
-	private String configManagement;
-
-	/**
-	 * isConfigManagement to check if true accept all controllable properties, of false accept monitoring only
-	 */
-	private boolean isConfigManagement;
+	private boolean configManagement;
 
 	/**
 	 * isEmergencyDelivery to check if control flow is trigger
@@ -103,7 +98,7 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 	 *
 	 * @return value of {@link #configManagement}
 	 */
-	public String getConfigManagement() {
+	public boolean getConfigManagement() {
 		return configManagement;
 	}
 
@@ -112,7 +107,7 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 	 *
 	 * @param configManagement new value of {@link #configManagement}
 	 */
-	public void setConfigManagement(String configManagement) {
+	public void setConfigManagement(boolean configManagement) {
 		this.configManagement = configManagement;
 	}
 
@@ -186,15 +181,14 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 		try {
 			this.timeout = controlSSHTimeout;
 			if (!isEmergencyDelivery) {
-				convertConfigManagement();
 				retrieveMonitoring();
 				if (failedMonitor.size() == AtenPDUConstant.NUMBER_OF_MONITORING_DATA) {
 					StringBuilder sb = new StringBuilder();
 					failedMonitor.forEach((failedMonitorGroupName, message) -> sb.append(message).append("\n"));
 					throw new ResourceNotReachableException("Error while getting monitoring data, " + sb);
 				}
-				populateMonitoringAndControllingData(stats, controlStats, advancedControllableProperties);
-				if (isConfigManagement) {
+				if (configManagement) {
+					populateMonitoringAndControllingData(stats, controlStats, advancedControllableProperties);
 					stats.putAll(controlStats);
 					extendedStatistics.setControllableProperties(advancedControllableProperties);
 				}
@@ -323,7 +317,7 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 						stats.put(key, AtenPDUConstant.NONE);
 						continue;
 					}
-					if (!isConfigManagement) {
+					if (!configManagement) {
 						stats.put(key,OutletStatusEnum.getByValue(data).getName());
 						continue;
 					}
@@ -426,10 +420,4 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 		}
 	}
 
-	/**
-	 * This method is used to validate input config management from user
-	 */
-	private void convertConfigManagement() {
-		isConfigManagement = StringUtils.isNotNullOrEmpty(this.configManagement) && this.configManagement.equalsIgnoreCase(AtenPDUConstant.TRUE);
-	}
 }
