@@ -43,7 +43,6 @@ class AtenPDUCommunicatorTest {
 		atenPDUCommunicator.setPassword("");
 		atenPDUCommunicator.init();
 		atenPDUCommunicator.connect();
-		atenPDUCommunicator.setConfigManagement("true");
 	}
 
 	@AfterEach
@@ -67,21 +66,6 @@ class AtenPDUCommunicatorTest {
 	}
 
 	/**
-	 * Test default config management
-	 *
-	 * Expect default config management successfully
-	 * @throws Exception if an error occurs during the test execution.
-	 */
-	@Test
-	@Order(2)
-	void testDefaultConfigManagement() throws Exception {
-		atenPDUCommunicator.setConfigManagement("false");
-		ExtendedStatistics extendedStatistics = (ExtendedStatistics) atenPDUCommunicator.getMultipleStatistics().get(0);
-		Map<String, String> statistics = extendedStatistics.getStatistics();
-		Assertions.assertEquals(4, statistics.size());
-	}
-
-	/**
 	 * Switch off the outlet to test the control
 	 *
 	 * Expect outlet turn off successfully
@@ -89,7 +73,6 @@ class AtenPDUCommunicatorTest {
 	 */
 	@Test
 	void testControlSwitchOffOutlet() throws Exception {
-		atenPDUCommunicator.setConfigManagement("true");
 		ExtendedStatistics extendedStatistics = (ExtendedStatistics) atenPDUCommunicator.getMultipleStatistics().get(0);
 		List<AdvancedControllableProperty> controllablePropertyList = extendedStatistics.getControllableProperties();
 		String outletStatusOn = controllablePropertyList.stream().filter(item -> item.getName().equals(AtenPDUPropertiesEnum.OUTLET_STATUS_1.getName())).findFirst().get().getValue().toString();
@@ -115,7 +98,6 @@ class AtenPDUCommunicatorTest {
 	 */
 	@Test
 	void testControlSwitchOnOutlet() throws Exception {
-		atenPDUCommunicator.setConfigManagement("true");
 		ExtendedStatistics extendedStatistics = (ExtendedStatistics) atenPDUCommunicator.getMultipleStatistics().get(0);
 		List<AdvancedControllableProperty> controllablePropertyList = extendedStatistics.getControllableProperties();
 		String outletStatusOff = controllablePropertyList.stream().filter(item -> item.getName().equals(AtenPDUPropertiesEnum.OUTLET_STATUS_1.getName())).findFirst().get().getValue().toString();
@@ -142,7 +124,6 @@ class AtenPDUCommunicatorTest {
 	 */
 	@Test
 	void testReboot() throws Exception {
-		atenPDUCommunicator.setConfigManagement("true");
 		atenPDUCommunicator.getMultipleStatistics();
 		atenPDUCommunicator.getMultipleStatistics();
 		ControllableProperty controllableProperty = new ControllableProperty();

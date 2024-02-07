@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
+import javax.security.auth.login.FailedLoginException;
 import org.apache.commons.collections.CollectionUtils;
 
 import com.avispl.symphony.api.dal.control.Controller;
@@ -84,37 +85,9 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 	private ExtendedStatistics localExtendedStatistics;
 
 	/**
-	 * configManagement imported from the user interface
-	 */
-	private String configManagement;
-
-	/**
-	 * isConfigManagement to check if true accept all controllable properties, of false accept monitoring only
-	 */
-	private boolean isConfigManagement;
-
-	/**
 	 * isEmergencyDelivery to check if control flow is trigger
 	 */
 	private boolean isEmergencyDelivery;
-
-	/**
-	 * Retrieves {@link #configManagement}
-	 *
-	 * @return value of {@link #configManagement}
-	 */
-	public String getConfigManagement() {
-		return configManagement;
-	}
-
-	/**
-	 * Sets {@link #configManagement} value
-	 *
-	 * @param configManagement new value of {@link #configManagement}
-	 */
-	public void setConfigManagement(String configManagement) {
-		this.configManagement = configManagement;
-	}
 
 	/**
 	 * Constructor for AtenPDUCommunicator class
@@ -180,24 +153,19 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 		ExtendedStatistics extendedStatistics = new ExtendedStatistics();
 		List<AdvancedControllableProperty> advancedControllableProperties = new ArrayList<>();
 		Map<String, String> stats = new HashMap<>();
-		Map<String, String> controlStats = new HashMap<>();
 		reentrantLock.lock();
 
 		try {
 			this.timeout = controlSSHTimeout;
 			if (!isEmergencyDelivery) {
-				convertConfigManagement();
 				retrieveMonitoring();
 				if (failedMonitor.size() == AtenPDUConstant.NUMBER_OF_MONITORING_DATA) {
 					StringBuilder sb = new StringBuilder();
 					failedMonitor.forEach((failedMonitorGroupName, message) -> sb.append(message).append("\n"));
 					throw new ResourceNotReachableException("Error while getting monitoring data, " + sb);
 				}
-				populateMonitoringAndControllingData(stats, controlStats, advancedControllableProperties);
-				if (isConfigManagement) {
-					stats.putAll(controlStats);
-					extendedStatistics.setControllableProperties(advancedControllableProperties);
-				}
+				populateMonitoringAndControllingData(stats, advancedControllableProperties);
+				extendedStatistics.setControllableProperties(advancedControllableProperties);
 				extendedStatistics.setStatistics(stats);
 				localExtendedStatistics = extendedStatistics;
 			}
@@ -310,7 +278,7 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 	 * @param stats the stats are list of statistics
 	 * @param advancedControllableProperties the list of AdvancedControllableProperty
 	 */
-	private void populateMonitoringAndControllingData(Map<String, String> stats, Map<String, String> controlStats, List<AdvancedControllableProperty> advancedControllableProperties) {
+	private void populateMonitoringAndControllingData(Map<String, String> stats, List<AdvancedControllableProperty> advancedControllableProperties) {
 		for (AtenPDUPropertiesEnum property : AtenPDUPropertiesEnum.values()) {
 			String key = property.getName();
 			String data = AtenPDUConstant.NONE.equals(getDefaultValueOrNone(cacheKeyAndValue.get(key))) ? AtenPDUConstant.NONE : cacheKeyAndValue.get(key);
@@ -323,17 +291,13 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 						stats.put(key, AtenPDUConstant.NONE);
 						continue;
 					}
-					if (!isConfigManagement) {
-						stats.put(key,OutletStatusEnum.getByValue(data).getName());
-						continue;
-					}
 					int initialValue = OutletStatusEnum.ON.getName().equals(OutletStatusEnum.getByValue(data).getName()) ? 1 : 0;
-					controlStats.put(key, String.valueOf(initialValue));
+					stats.put(key, String.valueOf(initialValue));
 					AdvancedControllableProperty outletControl = createSwitch(key, initialValue);
 					advancedControllableProperties.add(outletControl);
 					break;
 				case REBOOT:
-					controlStats.put(key, AtenPDUConstant.EMPTY);
+					stats.put(key, AtenPDUConstant.EMPTY);
 					advancedControllableProperties.add(createButton(key, AtenPDUConstant.SYSTEM_REBOOT, AtenPDUConstant.EMPTY, 0L));
 					break;
 				default:
@@ -356,6 +320,8 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 				throw new IllegalArgumentException("The response is empty or null");
 			}
 			return response;
+		} catch (FailedLoginException e) {
+			throw new FailedLoginException("Login failure, check credentials and try again.");
 		} catch (Exception e) {
 			failedMonitor.put(command, e.getMessage());
 			logger.error("Error when execute command " + e.getMessage());
@@ -369,14 +335,16 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 	 * @param name of the property of device want to control
 	 * @param command to send to device
 	 */
-	private void sendCommandToControlDevice(String name, String command) {
+	private void sendCommandToControlDevice(String name, String command) throws Exception {
 		try {
 			String response = this.send(command.contains("\r") ? command : command.concat("\r"));
 			if (StringUtils.isNullOrEmpty(response)) {
 				throw new IllegalArgumentException(String.format("Error when control %s, Syntax error command: %s", name, command));
 			}
+		}catch (FailedLoginException e) {
+			throw new FailedLoginException("Login failure, check credential and try again.");
 		} catch (Exception e) {
-			throw new IllegalArgumentException(String.format("Error when control %s", name));
+			throw new IllegalArgumentException(String.format("Error when control %s", name), e);
 		}
 	}
 
@@ -426,10 +394,4 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 		}
 	}
 
-	/**
-	 * This method is used to validate input config management from user
-	 */
-	private void convertConfigManagement() {
-		isConfigManagement = StringUtils.isNotNullOrEmpty(this.configManagement) && this.configManagement.equalsIgnoreCase(AtenPDUConstant.TRUE);
-	}
 }
