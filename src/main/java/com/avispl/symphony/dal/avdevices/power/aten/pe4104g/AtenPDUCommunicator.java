@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
 
 import javax.security.auth.login.FailedLoginException;
@@ -220,8 +221,10 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 				case OUTLET_STATUS_3:
 				case OUTLET_STATUS_4:
 					String outletNumber = getOutletNumber(controlProperty);
-					OutletStatusEnum outletStatus = OutletStatusEnum.getByValue(value.equalsIgnoreCase("1") ? AtenPDUConstant.ON : AtenPDUConstant.OFF);
-					sendCommandToControlDevice(controlProperty.getName(), AtenPDUCommand.getSwitchControlCommand(outletNumber, outletStatus.getValue()));
+					Optional<OutletStatusEnum> outletStatus = OutletStatusEnum.getByValue(value.equalsIgnoreCase("1") ? AtenPDUConstant.ON : AtenPDUConstant.OFF);
+					if (outletStatus.isPresent()) {
+						sendCommandToControlDevice(controlProperty.getName(), AtenPDUCommand.getSwitchControlCommand(outletNumber, outletStatus.get().getValue()));
+					}
 					break;
 				case REBOOT:
 					sendCommandToControlDevice(controlProperty.getName(), AtenPDUCommand.REBOOT.getCommand());
@@ -262,7 +265,9 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 					case OUTLET_STATUS_2:
 					case OUTLET_STATUS_3:
 					case OUTLET_STATUS_4:
-						cacheKeyAndValue.put(command.getName(), getDefaultValueOrNone(response.split("\r\n")[1].trim()));
+						if (response.split("\r\n").length > 1) {
+							cacheKeyAndValue.put(command.getName(), getDefaultValueOrNone(response.split("\r\n")[1].trim()));
+						}
 						break;
 					default:
 						logger.debug(String.format("The adapter can't support monitoring properties name: %s", command.getName()));
@@ -287,11 +292,11 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 				case OUTLET_STATUS_2:
 				case OUTLET_STATUS_3:
 				case OUTLET_STATUS_4:
-					if (AtenPDUConstant.NONE.equals(data)) {
+					if (AtenPDUConstant.NONE.equals(data) || !OutletStatusEnum.getByValue(data).isPresent()) {
 						stats.put(key, AtenPDUConstant.NONE);
 						continue;
 					}
-					int initialValue = OutletStatusEnum.ON.getName().equals(OutletStatusEnum.getByValue(data).getName()) ? 1 : 0;
+					int initialValue = OutletStatusEnum.ON.getName().equals(OutletStatusEnum.getByValue(data).get().getName()) ? 1 : 0;
 					stats.put(key, String.valueOf(initialValue));
 					AdvancedControllableProperty outletControl = createSwitch(key, initialValue);
 					advancedControllableProperties.add(outletControl);
@@ -319,7 +324,7 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 			if (StringUtils.isNullOrEmpty(response)) {
 				throw new IllegalArgumentException("The response is empty or null");
 			}
-			return response;
+			return response.replace(">", "");
 		} catch (FailedLoginException e) {
 			throw new FailedLoginException("Login failure, check credentials and try again.");
 		} catch (Exception e) {
