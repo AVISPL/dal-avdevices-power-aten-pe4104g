@@ -5,6 +5,7 @@
 package com.avispl.symphony.dal.avdevices.power.aten.pe4104g.common;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 /**
  * This enum represents the status of outlet
@@ -56,9 +57,8 @@ public enum OutletStatusEnum {
 	 * @param value is the status of outlet
 	 * @return OutletStatus want to get
 	 */
-	public static OutletStatusEnum getByValue(String value) {
+	public static Optional<OutletStatusEnum> getByValue(String value) {
 		return Arrays.stream(OutletStatusEnum.values()).filter(status -> status.getValue().equals(value))
-				.findFirst()
-				.orElseThrow(() -> new IllegalStateException(String.format("Outlet status with value %s is not supported.", value)));
+				.findFirst();
 	}
 }
