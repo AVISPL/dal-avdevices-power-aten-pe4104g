@@ -265,8 +265,9 @@ public class AtenPDUCommunicator extends SshCommunicator implements Monitorable,
 					case OUTLET_STATUS_2:
 					case OUTLET_STATUS_3:
 					case OUTLET_STATUS_4:
-						if (response.split("\r\n").length > 1) {
-							cacheKeyAndValue.put(command.getName(), getDefaultValueOrNone(response.split("\r\n")[1].trim()));
+                        String[] responseItems = response.split("\r\n");
+						if (responseItems.length > 1) {
+							cacheKeyAndValue.put(command.getName(), getDefaultValueOrNone(responseItems[1].trim()));
 						}
 						break;
 					default:
